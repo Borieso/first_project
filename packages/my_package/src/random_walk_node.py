@@ -3,6 +3,7 @@
 import os
 import rospy
 from random import uniform
+from random import randint
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import Twist2DStamped
 
@@ -30,17 +31,24 @@ class RandomWalkNode(DTROS):
         # publish 10 messages every second (10 Hz)
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            linear_velocity = self._v # Randomize linear velocity between 0.1 and 0.5 m/s
-            angular_velocity = uniform(-OMEGA, OMEGA)  # Randomize angular velocity between -OMEGA and OMEGA rad/s
-
-            message = Twist2DStamped(v=linear_velocity, omega=angular_velocity)
-            for count in range(0, 20):
-                self._publisher.publish(message)
+            
+            hoek = -1 if randint(0,1) == 0 else 1
+            message_angle = Twist2DStamped(v=0, omega=self._omega*hoek)
+            tijd =  randint(1,6) # Randomize angular v elocity between -OMEGA and OMEGA rad/s
+            for i in range(tijd):
+                self._publisher.publish(message_angle)
+                rate.sleep()
+            
+            message_lineair = Twist2DStamped(v=self._v, omega=0)
+            tijd =  randint(5,10)
+            for count in range(tijd):
+                self._publisher.publish(message_lineair)
                 rate.sleep()
 
     def on_shutdown(self):
         stop = Twist2DStamped(v=0.0, omega=0.0)
         self._publisher.publish(stop)
+        rospy.loginfo("node stopped")
 
 if __name__ == '__main__':
     # create the node

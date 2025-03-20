@@ -8,7 +8,7 @@ from duckietown_msgs.msg import Twist2DStamped
 
 # Twist command for controlling the linear and angular velocity of the frame
 VELOCITY = 0.3  # linear vel    , in m/s    , forward (+)
-OMEGA = 4.0     # angular vel   , rad/s     , counter clock wise (+)
+OMEGA = 0     # angular vel   , rad/s     , counter clock wise (+)
 
 
 class TwistControlNode(DTROS):
@@ -30,12 +30,15 @@ class TwistControlNode(DTROS):
         rate = rospy.Rate(10)
         message = Twist2DStamped(v=self._v, omega=self._omega)
         while not rospy.is_shutdown():
-            self._publisher.publish(message)
-            rate.sleep()
+            for i in range(30):
+                self._publisher.publish(message)
+                rate.sleep()
+            rospy.signal_shutdown("task finished")
 
     def on_shutdown(self):
         stop = Twist2DStamped(v=0.0, omega=0.0)
         self._publisher.publish(stop)
+        rospy.loginfo("shut down node")
 
 if __name__ == '__main__':
     # create the node

@@ -45,7 +45,9 @@ class WheelEncoderReaderNode(DTROS):
                 msg = f"Wheel encoder ticks [LEFT, RIGHT]: {self._ticks_left}, {self._ticks_right}"
                 rospy.loginfo(msg)
             rate.sleep()
-
+    def on_shutdown(self):
+        rospy.loginfo("node shutdown")
+        
 if __name__ == '__main__':
     # create the node
     node = WheelEncoderReaderNode(node_name='wheel_encoder_reader_node')
