@@ -3,6 +3,7 @@
 import rospy
 from duckietown.dtros import DTROS, NodeType
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 
 class MySubscriberNode(DTROS):
 
@@ -10,10 +11,10 @@ class MySubscriberNode(DTROS):
         # initialize the DTROS parent class
         super(MySubscriberNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
         # construct subscriber
-        self.sub = rospy.Subscriber('chatter', String, self.callback)
+        self.sub = rospy.Subscriber(f"/{self._vehicle_name}/obstacle_detected", Bool, self.callback)
 
-    def callback(self, data):
-        rospy.loginfo("I heard '%s'", data.data)
+    def callback(self, msg : Bool):
+        rospy.loginfo("I heard '%s'", msg.Bool)
 
 if __name__ == '__main__':
     # create the node
