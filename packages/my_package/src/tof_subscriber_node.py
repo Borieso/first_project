@@ -9,7 +9,7 @@ from std_msgs.msg import Bool  # Import Bool message type
 class TofSubscriberNode(DTROS):
     def __init__(self, node_name):
         # Initialize the DTROS parent class
-        super(TofSubscriberNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
+        super(TofSubscriberNode, self).__init__(node_name=node_name, node_type=NodeType.PERCEPTION)
 
         # Ensure VEHICLE_NAME is set
         self._vehicle_name = os.environ.get('VEHICLE_NAME', 'default_vehicle')
@@ -28,20 +28,8 @@ class TofSubscriberNode(DTROS):
     def cb_tof_range(self, msg: Range):
         # Check if obstacle is closer than threshold
         is_obstacle = msg.range < self.obstacle_threshold
+        self._obstacle_pub.publish(is_obstacle)
 
-        if (self._prev_obstacle == None):
-            self._obstacle_pub.publish(is_obstacle)
-            self._prev_obstacle = is_obstacle
-        
-        if is_obstacle and not self._prev_obstacle:
-            # Publish obstacle status
-            self._obstacle_pub.publish(is_obstacle)
-            self._prev_obstacle = True
-        if not is_obstacle and self._prev_obstacle:
-            self._obstacle_pub.publish(is_obstacle)
-
-
-        
 
         # Log the detection
         rospy.loginfo(f"Received range data: {msg.range:.2f} meters | Obstacle: {is_obstacle}")
