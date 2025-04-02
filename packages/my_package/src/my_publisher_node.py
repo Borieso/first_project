@@ -23,6 +23,8 @@ class MyPublisherNode(DTROS):
         while not rospy.is_shutdown():
             rospy.loginfo("Publishing message: '%s'" % message)
             self._publisher.publish(message)
+            with open("file.txt", "a") as f:  # "a" is for append mode
+                f.write(message+ "\n")  # Write the message to the file
             rate.sleep()
 
 if __name__ == '__main__':

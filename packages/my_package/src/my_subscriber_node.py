@@ -14,6 +14,8 @@ class MySubscriberNode(DTROS):
         self.sub = rospy.Subscriber(f"/{self._vehicle_name}/obstacle_detected", Bool, self.callback)
 
     def callback(self, msg : Bool):
+        with open("file.txt", "a") as f:  # "a" is for append mode
+            f.write(msg.Bool+ "\n")  # Write the message to the file
         rospy.loginfo("I heard '%s'", msg.Bool)
 
 if __name__ == '__main__':
