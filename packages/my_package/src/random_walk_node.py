@@ -29,8 +29,11 @@ class RandomWalkNode(DTROS):
         self._publisher = rospy.Publisher(twist_topic, Twist2DStamped, queue_size=1)
         # construct subscriber
         self.object_topic = f"/{self._vehicle_name}/obstacle_detected"
+        self.duck_topic = f"/{self._vehicle_name}/duck_detected"
         self._subscriber_object = rospy.Subscriber(self.object_topic, Bool, self.listen)
+        self._subscriber_duck = rospy.Subscriber(self.duck_topic, Bool, self.listen2)
         self.object_detected = False
+        self.duck_detected = False
         
 
     def run(self):
@@ -38,10 +41,10 @@ class RandomWalkNode(DTROS):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             
-            if(self.object_detected):
-                rospy.loginfo("Object was detected:  GO BACKWARDS")
+            if(self.object_detected or self.duck_detected):
+                rospy.loginfo("Object/Duck was detected:  GO BACKWARDS")
 
-                tijd = randint(5,10)
+                tijd = 3
                 message_lineair = Twist2DStamped(v=-self._v, omega=0)
                 for count in range(tijd):
                     self._publisher.publish(message_lineair)
@@ -70,6 +73,10 @@ class RandomWalkNode(DTROS):
     def listen(self, data):
         self.object_detected = data.data
         rospy.loginfo("Object detected: {%s}", data.data)
+    def listen2(self, data):
+        self.duck_detected = data.data
+        if(self.duck_detected):
+            rospy.loginfo("Duck is detected!!!")
 
 
 

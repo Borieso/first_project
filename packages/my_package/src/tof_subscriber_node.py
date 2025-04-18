@@ -30,7 +30,6 @@ class TofSubscriberNode(DTROS):
         is_obstacle = msg.range < self.obstacle_threshold
         self._obstacle_pub.publish(is_obstacle)
 
-
         # Log the detection
         rospy.loginfo(f"Received range data: {msg.range:.2f} meters | Obstacle: {is_obstacle}")
 
