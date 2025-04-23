@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+
+import os
+import rospy
+from random import uniform
+from random import randint
+from std_msgs.msg import Bool  # Import Bool message type
+from duckietown.dtros import DTROS, NodeType
+from duckietown_msgs.msg import Twist2DStamped, AprilTagDetectionArray, AprilTagDetection
+from geometry_msgs.msg import Transform, Vector3, Quaternion
+
+
+# Twist command for controlling the linear and angular velocity of the frame
+VELOCITY = 0.3  # linear vel    , in m/s    , forward (+)
+OMEGA = 2.0     # angular vel   , rad/s     , counter clock wise (+)
+
+
+class SearchApriltagNode(DTROS):
+
+    def __init__(self, node_name):
+        # initialize the DTROS parent class
+        super(SearchApriltagNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
+        # static parameters
+        self._vehicle_name = os.environ['VEHICLE_NAME']
+        twist_topic = f"/{self._vehicle_name}/car_cmd_switch_node/cmd"
+        # form the message
+        self._v = VELOCITY
+        self._omega = OMEGA
+        # construct publisher
+        self._publisher = rospy.Publisher(twist_topic, Twist2DStamped, queue_size=1)
+        # construct subscriber
+        self.object_topic = f"/{self._vehicle_name}/obstacle_detected"
+        self.duck_topic = f"/{self._vehicle_name}/duck_detected"
+        self.apriltag_topic = f"/duckie1/apriltag_detector_node/detections"
+        self._subscriber_object = rospy.Subscriber(self.object_topic, Bool, self.listen)
+        self._subscriber_duck = rospy.Subscriber(self.duck_topic, Bool, self.listen2)
+        self._subscriber_tag = rospy.Subscriber(self.apriltag_topic, AprilTagDetectionArray  , self.listen3)
+        self.object_detected = False
+        self.duck_detected = False
+        self.tag_detected = [False, 0, 0] # (, side of the robot , front of the robot)
+
+    
+    def sgn(self, x):
+        return (x>0)-(x<0)
+    
+
+    def turn_right(self):
+        message_angle = Twist2DStamped(v=0, omega=self._omega)
+        self._publisher.publish(message_angle)
+        return
+    def turn_left(self):
+        message_angle = Twist2DStamped(v=0, omega=self._omega*-1)
+        self._publisher.publish(message_angle)
+        return
+    def drive_forward(self, v):
+        message_angle = Twist2DStamped(v=VELOCITY, omega=0)
+        self._publisher.publish(message_angle)
+        return
+    def stop(self, v):
+        message_angle = Twist2DStamped(v=VELOCITY, omega=0)
+        self._publisher.publish(message_angle)
+        return
+    def detect_obstacle(self):
+        return self.object_detected or self.tag_detected[0]
+
+
+    
+    def random_walk(self, rate):
+        hoek = -1 if randint(0,1) == 0 else 1 #Go left or go right
+
+        tijd =  randint(1,6) # Randomize angular v elocity between -OMEGA and OMEGA rad/s
+        for i in range(tijd):
+            if(self.detect_obstacle()):
+                break
+            if hoek ==-1:
+                self.turn_left()
+            else:
+                self.turn_right()
+            rate.sleep()
+                    
+        tijd =  randint(5,10)
+        for count in range(tijd):
+            if(self.detect_obstacle()):
+                break
+            self.drive_forward()
+            rate.sleep()
+        return
+    
+    def goto_apriltag(self, info):  
+        front = info[2]
+        side = info[1]
+
+        if(side>0.15):
+            rospy.loginfo("Turn left")
+            self.turn_left()
+        elif(side<-0.15):
+            rospy.loginfo("Turn right")
+            self.turn_right()
+        elif(front>0.1):
+            rospy.loginfo("front")
+            self.drive_forward()
+        else:
+            rospy.loginfo("Draaaiiiii")
+            self.turn_left()
+
+
+    def run(self):
+        # publish 10 messages every second (10 Hz)
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            #If there is an object--> go backwards
+            self.goto_apriltag()
+             
+                
+    
+    def on_shutdown(self):
+        stop = Twist2DStamped(v=0.0, omega=0.0)
+        self._publisher.publish(stop)
+        rospy.loginfo("node stopped")
+    
+    def listen(self, data):
+        self.object_detected = data.data
+        #rospy.loginfo("Object detected: {%s}", data.data)
+    def listen2(self, data):
+        self.duck_detected = data.data
+        if(self.duck_detected):
+            rospy.loginfo("Duck is detected!!!")
+    def listen3(self, data : AprilTagDetectionArray):
+        count = 0
+        for detection in data.detections:
+            count+=1
+        
+        if(count>0):
+            rospy.loginfo(f"{count} tags detected!! side: {data.detections[0].transform.translation.x}, front:{data.detections[0].transform.translation.z}")
+            self.tag_detected = [True,data.detections[0].transform.translation.x, data.detections[0].transform.translation.z]
+        else:
+            self.tag_detected[0] = False
+        
+
+
+
+
+
+if __name__ == '__main__':
+    # create the node
+    node = SearchApriltagNode(node_name='search_april_node')
+    # run node
+    node.run()
+    # keep the process from terminating
+    rospy.spin()

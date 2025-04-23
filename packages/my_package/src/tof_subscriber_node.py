@@ -31,7 +31,7 @@ class TofSubscriberNode(DTROS):
         self._obstacle_pub.publish(is_obstacle)
 
         # Log the detection
-        rospy.loginfo(f"Received range data: {msg.range:.2f} meters | Obstacle: {is_obstacle}")
+        #rospy.loginfo(f"Received range data: {msg.range:.2f} meters | Obstacle: {is_obstacle}")
 
 if __name__ == '__main__':
     node = TofSubscriberNode(node_name='my_subscriber_node')
