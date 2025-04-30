@@ -9,6 +9,12 @@ from std_msgs.msg import Bool  # Import Bool message type
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import Twist2DStamped, AprilTagDetectionArray, AprilTagDetection
 from geometry_msgs.msg import Transform, Vector3, Quaternion
+from nav_msgs.msg import Odometry
+from tf import transformations as tr
+from geometry_msgs.msg import Quaternion, Twist, Pose, Point, Vector3, TransformStamped, Transform
+
+
+
 
 
 # Twist command for controlling the linear and angular velocity of the frame
@@ -24,11 +30,14 @@ class SearchApriltagNode(DTROS):
         # static parameters
         self._vehicle_name = os.environ['VEHICLE_NAME']
         twist_topic = f"/{self._vehicle_name}/car_cmd_switch_node/cmd"
+        self.reset_odom_topic = f"{self._vehicle_name}/reset_odom"
+
         # form the message
         self._v = VELOCITY
         self._omega = OMEGA
         # construct publisher
         self._publisher = rospy.Publisher(twist_topic, Twist2DStamped, queue_size=1)
+        self._reset_odom_publisher = rospy.Publisher(self.reset_odom_topic, Odometry, queue_size=1)
         # construct subscriber
         self.object_topic = f"/{self._vehicle_name}/obstacle_detected"
         self.duck_topic = f"/{self._vehicle_name}/duck_detected"
@@ -40,6 +49,12 @@ class SearchApriltagNode(DTROS):
         self.duck_detected = False
         self.tag_info = [False, 0, 0] # (, side of the robot , front of the robot)
         self.phase_start_time = rospy.get_time()
+
+        self.x, self.y, self.z = 0
+        self.yaw = 0.0
+        self.q = [0.0, 0.0, 0.0, 1.0]
+        self.tv = 0.0
+        self.rv = 0.0
 
 
     
@@ -122,6 +137,7 @@ class SearchApriltagNode(DTROS):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             time = rospy.get_time() #Return the time in seconds
+            self.reset_odometry()
             if(self.tag_info[0]):
                 self.goto_apriltag(self.tag_info)
                 self.phase_start_time = time
@@ -136,7 +152,16 @@ class SearchApriltagNode(DTROS):
             rate.sleep()
              
                 
-    
+    def reset_odometry(self):
+        odom = Odometry()
+        odom.header.stamp = rospy.Time.now()  # Ideally, should be encoder time
+        odom.header.frame_id = self.origin_frame
+        odom.pose.pose = Pose(Point(self.x, self.y, self.z), Quaternion(*self.q))
+        odom.child_frame_id = self.target_frame
+        odom.twist.twist = Twist(Vector3(self.tv, 0.0, 0.0), Vector3(0.0, 0.0, self.rv))
+
+        self._reset_odom_publisher.publish(odom)
+
     def on_shutdown(self):
         stop = Twist2DStamped(v=0.0, omega=0.0)
         self._publisher.publish(stop)
