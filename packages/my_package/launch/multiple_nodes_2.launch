@@ -5,6 +5,7 @@
 	<node pkg="my_package" type="tof_subscriber_node.py" name="tof_subscriber_node" output="screen"/>
 	<node pkg="my_package" type="Search_apriltag_node.py" name="Search_apriltag_node" output="screen"/>
 	<node pkg="my_package" type="camera_reader_node.py" name="camera_reader_node" output="screen"/>
+	<node pkg="my_package" type="odometry_visual_node.py" name="odometry_visual_node" output="screen"/>
 
    </group>
 
