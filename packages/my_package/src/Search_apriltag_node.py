@@ -2,6 +2,7 @@
 
 import os
 import rospy
+import time
 from random import uniform
 from random import randint
 from std_msgs.msg import Bool  # Import Bool message type
@@ -12,7 +13,7 @@ from geometry_msgs.msg import Transform, Vector3, Quaternion
 
 # Twist command for controlling the linear and angular velocity of the frame
 VELOCITY = 0.3  # linear vel    , in m/s    , forward (+)
-OMEGA = 2.0     # angular vel   , rad/s     , counter clock wise (+)
+OMEGA = 1.0     # angular vel   , rad/s     , counter clock wise (+)
 
 
 class SearchApriltagNode(DTROS):
@@ -31,46 +32,54 @@ class SearchApriltagNode(DTROS):
         # construct subscriber
         self.object_topic = f"/{self._vehicle_name}/obstacle_detected"
         self.duck_topic = f"/{self._vehicle_name}/duck_detected"
-        self.apriltag_topic = f"/duckie1/apriltag_detector_node/detections"
+        self.apriltag_topic = f"/{self._vehicle_name}/apriltag_detector_node/detections"
         self._subscriber_object = rospy.Subscriber(self.object_topic, Bool, self.listen)
         self._subscriber_duck = rospy.Subscriber(self.duck_topic, Bool, self.listen2)
         self._subscriber_tag = rospy.Subscriber(self.apriltag_topic, AprilTagDetectionArray  , self.listen3)
         self.object_detected = False
         self.duck_detected = False
-        self.tag_detected = [False, 0, 0] # (, side of the robot , front of the robot)
+        self.tag_info = [False, 0, 0] # (, side of the robot , front of the robot)
+        self.phase_start_time = rospy.get_time()
+
 
     
+
     def sgn(self, x):
         return (x>0)-(x<0)
     
 
-    def turn_right(self):
-        message_angle = Twist2DStamped(v=0, omega=self._omega)
+    def turn_right(self, omg= OMEGA):
+        message_angle = Twist2DStamped(v=0, omega=omg)
         self._publisher.publish(message_angle)
         return
-    def turn_left(self):
-        message_angle = Twist2DStamped(v=0, omega=self._omega*-1)
+    def turn_left(self, omg = OMEGA):
+        message_angle = Twist2DStamped(v=0, omega=omg*-1)
         self._publisher.publish(message_angle)
         return
-    def drive_forward(self, v):
-        message_angle = Twist2DStamped(v=VELOCITY, omega=0)
+    def drive_forward(self, vel=VELOCITY):
+        message_angle = Twist2DStamped(v=vel, omega=0)
         self._publisher.publish(message_angle)
         return
-    def stop(self, v):
-        message_angle = Twist2DStamped(v=VELOCITY, omega=0)
+    def drive_backward(self, vel=VELOCITY*-1):
+        message_angle = Twist2DStamped(v=vel, omega=0)
+        self._publisher.publish(message_angle)
+        return
+    def stop(self):
+        message_angle = Twist2DStamped(v=0, omega=0)
         self._publisher.publish(message_angle)
         return
     def detect_obstacle(self):
-        return self.object_detected or self.tag_detected[0]
+        return self.object_detected or self.tag_info[0]
 
 
     
     def random_walk(self, rate):
         hoek = -1 if randint(0,1) == 0 else 1 #Go left or go right
 
-        tijd =  randint(1,6) # Randomize angular v elocity between -OMEGA and OMEGA rad/s
+        tijd =  randint(4,9) # Randomize angular v elocity between -OMEGA and OMEGA rad/s
         for i in range(tijd):
             if(self.detect_obstacle()):
+                self.stop()         
                 break
             if hoek ==-1:
                 self.turn_left()
@@ -81,6 +90,7 @@ class SearchApriltagNode(DTROS):
         tijd =  randint(5,10)
         for count in range(tijd):
             if(self.detect_obstacle()):
+                self.stop()         
                 break
             self.drive_forward()
             rate.sleep()
@@ -90,6 +100,9 @@ class SearchApriltagNode(DTROS):
         front = info[2]
         side = info[1]
 
+        if(front>0.8):
+            rospy.loginfo("front")
+            self.drive_forward()
         if(side>0.15):
             rospy.loginfo("Turn left")
             self.turn_left()
@@ -108,8 +121,19 @@ class SearchApriltagNode(DTROS):
         # publish 10 messages every second (10 Hz)
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            #If there is an object--> go backwards
-            self.goto_apriltag()
+            time = rospy.get_time() #Return the time in seconds
+            if(self.tag_info[0]):
+                self.goto_apriltag(self.tag_info)
+                self.phase_start_time = time
+            elif(self.object_detected):
+                self.drive_backward()
+            
+            elif(time-self.phase_start_time>2):
+                rospy.loginfo("Start random walk")
+                self.random_walk(rate)
+            else:
+                self.stop()         
+            rate.sleep()
              
                 
     
@@ -132,9 +156,9 @@ class SearchApriltagNode(DTROS):
         
         if(count>0):
             rospy.loginfo(f"{count} tags detected!! side: {data.detections[0].transform.translation.x}, front:{data.detections[0].transform.translation.z}")
-            self.tag_detected = [True,data.detections[0].transform.translation.x, data.detections[0].transform.translation.z]
+            self.tag_info = [True,data.detections[0].transform.translation.x, data.detections[0].transform.translation.z]
         else:
-            self.tag_detected[0] = False
+            self.tag_info[0] = False
         
 
 
