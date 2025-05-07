@@ -13,7 +13,7 @@ from nav_msgs.msg import Odometry
 from tf import transformations as tr
 from geometry_msgs.msg import Quaternion, Twist, Pose, Point, Vector3, TransformStamped, Transform
 from duckietown_msgs.srv import SetCustomLEDPattern
-
+import numpy as np
 
 
 
@@ -74,6 +74,32 @@ class SearchApriltagNode(DTROS):
     def sgn(self, x):
         return (x>0)-(x<0)
     
+    
+
+    def estimate_robot_pose(p1_robot, p2_robot, p1_world, p2_world):
+        p1_r = np.array(p1_robot)
+        p2_r = np.array(p2_robot)
+        p1_w = np.array(p1_world)
+        p2_w = np.array(p2_world)
+
+        vec_r = p2_r - p1_r
+        vec_w = p2_w - p1_w
+
+        if not np.isclose(np.linalg.norm(vec_r), np.linalg.norm(vec_w), atol=1e-6):
+            print("⚠️ Warning: Point pairs have different distances. May not be a rigid transform.")
+
+        theta_r = np.arctan2(vec_r[1], vec_r[0])
+        theta_w = np.arctan2(vec_w[1], vec_w[0])
+        theta = theta_w - theta_r
+
+        R = np.array([
+            [np.cos(theta), -np.sin(theta)],
+            [np.sin(theta),  np.cos(theta)]
+        ])
+        t = p1_w - R @ p1_r
+        return t, theta, R
+
+
 
     def turn_right(self, omg= OMEGA):
         message_angle = Twist2DStamped(v=0, omega=omg)
@@ -150,8 +176,9 @@ class SearchApriltagNode(DTROS):
         while not rospy.is_shutdown():
             time = rospy.get_time() #Return the time in seconds
             self.reset_odometry()
-            if(self.tag_info[0]):
-                self.goto_apriltag(self.tag_info)
+            if(self.tag_info[0] and self.tag_info[1]):
+                # self.goto_apriltag(self.tag_info)
+                
                 self.phase_start_time = time
                 #Change leds
                 self.change_led_pattern(['blue', 'blue', 'blue', 'blue', 'blue'], [1, 1, 1, 1, 1], 1)
@@ -214,12 +241,12 @@ class SearchApriltagNode(DTROS):
         for detection in data.detections:
             count+=1
         
-        if(count>0):
-            rospy.loginfo(f"{count} tags detected!! side: {data.detections[0].transform.translation.x}, front:{data.detections[0].transform.translation.z}")
-            self.tag_info = [True,data.detections[0].transform.translation.x, data.detections[0].transform.translation.z]
-        else:
-            self.tag_info[0] = False
+        self.tag_info = [count]
+        for detection in data.detections:
+            self.tag_info = self.tag_info.append([(detection.transform.translation.x, detection.transform.translation.z)])
+
         
+        rospy.loginfo(f"{count} tags detected!!")
 
 
 
