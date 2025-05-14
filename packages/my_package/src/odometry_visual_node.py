@@ -2,6 +2,7 @@
 
 import rospy
 import math
+import os
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
@@ -12,7 +13,8 @@ class OdometryVisualizerNode(DTROS):
     def __init__(self, node_name):
         super(OdometryVisualizerNode, self).__init__(node_name=node_name, node_type=NodeType.VISUALIZATION)
 
-        self.vehicle_name = rospy.get_param('~vehicle_name', 'duck1')
+        self.vehicle_name = os.environ['VEHICLE_NAME']
+
         self.topic = f"/{self.vehicle_name}/deadreckoning_node/odom"
 
         # Publishers

@@ -16,7 +16,7 @@ class CameraReaderNode(DTROS):
 
         # Static parameters
         self._vehicle_name = os.environ['VEHICLE_NAME']
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
+        self._camera_topic = f"/{self._vehicle_name}/apriltag_detector_node/detections/image/compressed"
 
         # Bridge between OpenCV and ROS
         self._bridge = CvBridge()

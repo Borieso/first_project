@@ -17,7 +17,7 @@ class TofSubscriberNode(DTROS):
         self._prev_obstacle = None
 
         # Obstacle detection threshold
-        self.obstacle_threshold = 0.2  # 20 cm (0.2 meters)
+        self.obstacle_threshold = 0.3  # 20 cm (0.2 meters)
 
         # Publisher for obstacle detection
         self._obstacle_pub = rospy.Publisher(f"/{self._vehicle_name}/obstacle_detected", Bool, queue_size=10)
